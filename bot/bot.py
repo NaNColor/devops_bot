@@ -321,11 +321,14 @@ def get_ss(update: Update, context):
 def get_apt_list(update: Update, context):
     user_input = re.escape(update.message.text.replace(" ", ""))
     if user_input == "all":
-        data = ssh_execute_command("dpkg --get-selections | grep -v deinstall | head -n 20").split("\n")
-        result = "Information about packets:\n"
-        for line in data:
-            result += data.split(" ")[0] + ", "
-        result = result[:-1]
+        try:
+            data = ssh_execute_command("dpkg --get-selections | grep -v deinstall | head -n 200").split("\n")
+            result = "Information about packets:\n"
+            for line in data:
+                result += line.split()[0] + ", "
+            result = result[:-2]
+        except Exception as e:
+            result = e
     else:
         data = ssh_execute_command(f"dpkg --get-selections | grep -w {user_input}")
         result = f"Information about the packet:\n{data}"
