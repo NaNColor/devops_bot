@@ -212,16 +212,19 @@
       pip:
         requirements: "/usr/bot/requirements.txt"
         
-    - name: Run Bot
-      ansible.builtin.command:
-        cmd: python3 /usr/bot/bot.py
+    - name: Run bot 
+      command: python3 ~/devops/devops_bot/bot/bot.py
       environment:
-        TOKEN: "{{TOKEN}}"
-        DB_HOST: "{{ DB_HOST }}"
-        DB_USER: "{{ DB_USER }}"
-        DB_PASSWORD: "{{ DB_PASSWORD }}"
-        DB_DATABASE: "{{ DB_DATABASE }}"
         RM_HOST: "{{ RM_HOST }}"
         RM_PORT: "{{ RM_PORT }}"
         RM_USER: "{{ RM_USER }}"
         RM_PASSWORD: "{{ RM_PASSWORD }}"
+        DB_HOST: "{{ DB_HOST }}"
+        DB_PORT: "{{ DB_PORT }}"
+        DB_USER: "{{ DB_USER }}"
+        DB_PASSWORD: "{{ DB_PASSWORD }}"
+        DB_DATABASE: "{{ DB_DATABASE }}"
+        TOKEN: "{{ TOKEN }}"
+      async: 3600
+      poll: 0
+      ignore_errors: yes
