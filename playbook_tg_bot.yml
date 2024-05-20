@@ -154,7 +154,7 @@
     - name: git clone
       become: yes
       ansible.builtin.git:
-        repo: "https://github.com/NaNColor/devops_bot.git"
+        repo: "https://github.com/NaNColor/bufferapp.git"
         dest: "/usr/bot/"
         version: normal
 
@@ -163,13 +163,19 @@
       pip:
         requirements: "/usr/bot/requirements.txt"
 
-    - name: copy .env
-      become: yes
-      copy:
-        src: ".env"
-        dest: "/usr/bot/.env"
-
     - name: start bot
       become: yes
       command: "python3 /usr/bot/bot.py"
+      environment:
+        RM_HOST: "{{ RM_HOST }}"
+        RM_PORT: "{{ RM_PORT }}"
+        RM_USER: "{{ RM_USER }}"
+        RM_PASSWORD: "{{ RM_PASSWORD }}"
+        DB_HOST: "{{ DB_HOST }}"
+        DB_PORT: "{{ DB_PORT }}"
+        DB_USER: "{{ DB_USER }}"
+        DB_PASSWORD: "{{ DB_PASSWORD }}"
+        DB_DATABASE: "{{ DB_DATABASE }}"
+        TOKEN: "{{ TOKEN }}"
+      ignore_errors: yes
 
