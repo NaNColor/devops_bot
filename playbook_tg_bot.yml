@@ -20,6 +20,7 @@
         - rsyslog
         - python3-dev
         - build-essential
+        - python3
 
 
     - name: Add Python 3 to PATH
@@ -185,17 +186,15 @@
         src: "bot.py"
         dest: "/usr/bot/bot.py"
 
-    - name: copy requirements.txt
+    - name: Installing Python packages
+      pip:                
+        name:
+          - python-telegram-bot==13.7
+          - paramiko
+          - psycopg2-binary
+          - python-dotenv
       become: yes
-      copy:
-        src: "requirements.txt"
-        dest: "/usr/bot/requirements.txt"
         
-    - name: install python dependencies
-      become: yes
-      pip:
-        requirements: "/usr/bot/requirements.txt"
-  
     - name: start bot
       become: yes
       command: "python3 /usr/bot/bot.py"
