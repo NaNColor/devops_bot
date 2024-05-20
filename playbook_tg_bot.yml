@@ -162,7 +162,7 @@
 - name: Setting up a Telegram bot
   hosts: primary_db_and_bot_server
   gather_facts: no
-   tasks:
+  tasks:
     - name: copy bot.py
       become: yes
       copy:
