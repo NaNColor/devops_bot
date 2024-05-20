@@ -1,5 +1,5 @@
 - name: Deploy PostgreSQL master server
-  hosts: primary_db_and_bot_server
+  hosts: primary_db_server
   tasks:
     - name: Include group variables
       include_vars:
@@ -10,15 +10,12 @@
         name: "{{ item }}"
         state: present
       loop:
-        - sshpass
-        - python3-pip
         - python3-psycopg2
         - postgresql-15
         - postgresql-contrib
         - libpq-dev
         - tree
         - rsyslog
-        - python3-dev
         - build-essential
         - python3
 
@@ -170,12 +167,26 @@
 
 
 - name: Setting up a Telegram bot
-  hosts: primary_db_and_bot_server
+  hosts: bot_server
   gather_facts: no
   tasks:
     - name: Include group variables
       include_vars:
         file: .env
+    - name: Install packages
+      become: yes
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - sshpass
+        - python3-pip
+        - python3-psycopg2
+        - libpq-dev
+        - rsyslog
+        - python3-dev
+        - build-essential
+        - python3
     - name: create dir
       become: yes
       shell: "mkdir -p /usr/bot && chmod -R 777 /usr/bot"

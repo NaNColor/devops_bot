@@ -1,3 +1,6 @@
 [databases]
-primary_db_and_bot_server ansible_host=192.168.1.181 ansible_user=ansible ansible_password=ansible
+primary_db_server ansible_host=192.168.1.181 ansible_user=ansible ansible_password=ansible
 slave_server ansible_host=192.168.1.221 ansible_user=ansible ansible_password=ansible
+
+[bottg]
+bot_server ansible_host=192.168.1.136 ansible_user=ansible ansible_password=ansible
