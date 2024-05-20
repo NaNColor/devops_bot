@@ -212,17 +212,16 @@
       pip:
         requirements: "/usr/bot/requirements.txt"
         
-    - name: start bot
-      become: yes
-      command: "python3 /usr/bot/bot.py"
+    - name: Run Bot
+      ansible.builtin.command:
+        cmd: python3 /usr/bot/bot.py
       environment:
+        TOKEN: "{{TOKEN}}"
         DB_HOST: "{{ DB_HOST }}"
-        DB_PORT: "{{ DB_PORT }}"
-        RM_PASSWORD: "{{ RM_PASSWORD }}"
-        RM_HOST: "{{ RM_HOST }}"
-        DB_HOST: "{{ DB_HOST }}"
-        DB_PORT: "{{ DB_PORT }}"
         DB_USER: "{{ DB_USER }}"
         DB_PASSWORD: "{{ DB_PASSWORD }}"
         DB_DATABASE: "{{ DB_DATABASE }}"
-        TOKEN: "{{ TOKEN }}"
+        RM_HOST: "{{ RM_HOST }}"
+        RM_PORT: "{{ RM_PORT }}"
+        RM_USER: "{{ RM_USER }}"
+        RM_PASSWORD: "{{ RM_PASSWORD }}"
