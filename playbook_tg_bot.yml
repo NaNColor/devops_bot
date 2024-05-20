@@ -187,7 +187,6 @@
       loop:
         - sshpass
         - python3-pip
-        - python3-psycopg2
         - libpq-dev
         - rsyslog
         - python3-dev
