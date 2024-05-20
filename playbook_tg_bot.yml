@@ -186,7 +186,6 @@
         state: present
       loop:
         - sshpass
-        - python3-pip
         - libpq-dev
         - rsyslog
         - python3-dev
