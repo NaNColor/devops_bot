@@ -1,0 +1,175 @@
+- name: Install PostgreSQL on primary and replica
+  hosts: primary_db replica_db
+  become: yes
+  vars_files:
+    - .env
+  tasks:
+    - name: "Install packages"
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - postgresql-15
+        - postgresql-contrib
+    - name: Install psycopg2-binary
+      apt:
+        name: python3-psycopg2
+        state: present
+      become: yes
+    - name: Copy postgresql.conf
+      copy:
+        src: ./config-postgresql
+        dest: /etc/postgresql/15/main/postgresql.conf
+        mode: '0644'
+      become: yes
+    - name: Copy pg_hba.conf
+      copy:
+        src: ./pg_hba.conf
+        dest: /etc/postgresql/15/main/pg_hba.conf
+        mode: '0644'
+      become: yes
+    - name: Restart PostgreSQL service
+      ansible.builtin.systemd:
+        name: postgresql
+        state: restarted
+      become: yes
+
+- name: Setup primary database
+  hosts: primary_db
+  become: yes
+  environment:
+    POSTGRES_USER: "{{ DB_USER }}"
+    POSTGRES_PASSWORD: "{{ DB_PASSWORD }}"
+    DB_REPL_USER: "{{ DB_REPL_USER }}"
+    DB_REPL_PASSWORD: "{{ DB_REPL_PASSWORD }}"
+    DB_USER: "{{ DB_USER }}"
+    DB_PASSWORD: "{{ DB_PASSWORD }}"
+    DB_DATABASE: "{{ DB_DATABASE }}"
+  tasks:
+    - name: "Create database"
+      postgresql_db:
+        state: present
+        name: "{{ DB_DATABASE }}"
+      become: yes
+      become_user: postgres
+    - name: "Create db user"
+      postgresql_user:
+        state: present
+        name: "{{ DB_USER }}" 
+        password: '{{ DB_PASSWORD }}'
+      become: yes
+      become_user: postgres
+    - name: Grant all privileges on database to user
+      command: >
+        psql -U postgres -c "
+        GRANT CONNECT ON DATABASE "{{ DB_DATABASE }}" TO {{ DB_USER }};
+        GRANT ALL PRIVILEGES ON DATABASE "{{ DB_DATABASE }}" TO {{ DB_USER }};
+        "
+      become: yes
+      become_user: postgres
+    - name: Create PhoneNumbers table
+      postgresql_query:
+        db: "{{ DB_DATABASE }}"
+        query: |
+          CREATE TABLE IF NOT EXISTS phones (
+            ID SERIAL PRIMARY KEY,
+            phone VARCHAR(50) NOT NULL
+          );
+      become: yes
+      become_user: postgres
+    - name: Create Emails table
+      postgresql_query:
+        db: "{{ DB_DATABASE }}"
+        query: |
+          CREATE TABLE IF NOT EXISTS emails (
+            ID SERIAL PRIMARY KEY,
+            email VARCHAR(100) NOT NULL
+          );
+      become: yes
+      become_user: postgres
+    - name: Insert data into tables
+      postgresql_query:
+        db: "{{ DB_DATABASE }}"
+        query: |
+          INSERT INTO emails (email) VALUES ('email@test.test'), ('r.klimov@innopolis.university');
+          INSERT INTO phones (phone) VALUES ('+7(911) 123-45-67'), ('89111234567');
+      become: yes
+      become_user: postgres
+    - name: Create replication user
+      postgresql_user:
+        name: "{{ DB_REPL_USER }}"
+        password: '{{ DB_REPL_PASSWORD }}'
+        state: present
+        role_attr_flags: REPLICATION
+      become: yes
+      become_user: postgres
+    
+
+- name: Setup replica database
+  hosts: replica_db
+  vars_files:
+    - .env
+  become: yes
+  tasks:
+  
+    - name: Stop PostgreSQL service
+      ansible.builtin.systemd:
+        name: postgresql
+        state: stopped
+      become: yes
+    - name: Set up replication
+      shell: |
+        rm -rf  /etc/postgresql/15/main/*
+        pg_basebackup --pgdata=/etc/postgresql/15/main -R --username={{ DB_REPL_USER }} --host={{ DB_HOST }} --port={{ DB_PORT}}
+        chown -R postgres:postgres /etc/postgresql/15/main
+        chmod 0700 /etc/postgresql/15/main
+      register: result
+      environment:
+        DB_HOST: "{{ DB_HOST }}"
+        PGUSER: "{{ DB_REPL_USER }}"
+        PGPASSWORD: "{{ DB_REPL_PASSWORD }}"
+      become_user: postgres
+    - name: Restart PostgreSQL service
+      ansible.builtin.systemd:
+        name: postgresql
+        state: started
+      become: yes
+
+- name: Deploy Telegram bot
+  hosts: telegram_bot
+  become: yes
+  tasks:
+    - name: install apt dependencies 
+      become: yes
+      apt:
+        name:
+          - libpq-dev
+          - gcc
+          - musl-dev
+          - python3-pip
+          - git
+        state: latest
+        update_cache: true
+ 
+    - name: git clone
+      become: yes
+      ansible.builtin.git:
+        repo: "https://github.com/NaNColor/devops_bot.git"
+        dest: "/usr/bot/"
+        version: normal
+
+    - name: install python dependencies
+      become: yes
+      pip:
+        requirements: "/usr/bot/requirements.txt"
+
+    - name: copy .env
+      become: yes
+      copy:
+        src: ".env"
+        dest: "/usr/bot/.env"
+
+    - name: start bot
+      become: yes
+      command: "python3 /usr/bot/bot.py"
+

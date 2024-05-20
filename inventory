@@ -1,0 +1,8 @@
+[primary_db]
+primary_db_server ansible_host=192.168.1.126 ansible_user=ansible ansible_password=ansible
+
+[replica_db]
+replica_db_server ansible_host=192.168.1.246 ansible_user=ansible ansible_password=ansible
+
+[telegram_bot]
+bot ansible_host=192.168.1.136 ansible_user=ansible ansible_password=ansible

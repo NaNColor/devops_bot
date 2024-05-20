@@ -1,0 +1,29 @@
+.env Example
+
+TOKEN = ''
+
+RM_HOST = '192.168.1.136'
+
+RM_PORT = '22'
+
+RM_USER =
+
+RM_PASSWORD =
+
+DB_USER = 'postgres'
+
+DB_PASSWORD = 'Qq12345'
+
+DB_HOST = '192.168.1.126'
+
+DB_PORT = '5432'
+
+DB_DATABASE = 'pt_db'
+
+DB_REPL_USER = 'repl_user'
+
+DB_REPL_PASSWORD = 'Qq12345'
+
+DB_REPL_HOST = '192.168.1.246'
+
+DB_REPL_PORT = '5433'
