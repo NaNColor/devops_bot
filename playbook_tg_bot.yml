@@ -1,181 +1,196 @@
-- name: Install PostgreSQL on primary and replica
-  hosts: primary_db replica_db
-  become: yes
-  vars_files:
-    - .env
+- name: Deploy PostgreSQL master server
+  hosts: primary_db_and_bot_server
   tasks:
-    - name: "Install packages"
-      apt:
+    - name: Include group variables
+      include_vars:
+        file: .env
+    - name: Install packages
+      become: yes
+      package:
         name: "{{ item }}"
         state: present
       loop:
+        - sshpass
+        - python3-pip
+        - python3-psycopg2
         - postgresql-15
         - postgresql-contrib
-    - name: Install psycopg2-binary
-      apt:
-        name: python3-psycopg2
-        state: present
-      become: yes
-    - name: Copy postgresql.conf
-      copy:
-        src: ./config-postgresql
-        dest: /etc/postgresql/15/main/postgresql.conf
-        mode: '0644'
-      become: yes
-    - name: Copy pg_hba.conf
-      copy:
-        src: ./pg_hba.conf
-        dest: /etc/postgresql/15/main/pg_hba.conf
-        mode: '0644'
-      become: yes
-    - name: Restart PostgreSQL service
-      ansible.builtin.systemd:
-        name: postgresql
-        state: restarted
-      become: yes
+        - libpq-dev
+        - tree
+        - rsyslog
+        - python3-dev
+        - build-essential
 
-- name: Setup primary database
-  hosts: primary_db
-  become: yes
-  environment:
-    POSTGRES_USER: "{{ DB_USER }}"
-    POSTGRES_PASSWORD: "{{ DB_PASSWORD }}"
-    DB_REPL_USER: "{{ DB_REPL_USER }}"
-    DB_REPL_PASSWORD: "{{ DB_REPL_PASSWORD }}"
-    DB_USER: "{{ DB_USER }}"
-    DB_PASSWORD: "{{ DB_PASSWORD }}"
-    DB_DATABASE: "{{ DB_DATABASE }}"
-  tasks:
-    - name: "Create database"
-      postgresql_db:
-        state: present
-        name: "{{ DB_DATABASE }}"
-      become: yes
-      become_user: postgres
-    - name: "Create db user"
-      postgresql_user:
-        state: present
-        name: "{{ DB_USER }}" 
-        password: '{{ DB_PASSWORD }}'
-      become: yes
-      become_user: postgres
-    - name: Grant all privileges on database to user
-      command: >
-        psql -U postgres -c "
-        GRANT CONNECT ON DATABASE "{{ DB_DATABASE }}" TO {{ DB_USER }};
-        GRANT ALL PRIVILEGES ON DATABASE "{{ DB_DATABASE }}" TO {{ DB_USER }};
-        "
-      become: yes
-      become_user: postgres
-    - name: Create PhoneNumbers table
-      postgresql_query:
-        db: "{{ DB_DATABASE }}"
-        query: |
-          CREATE TABLE IF NOT EXISTS phones (
-            ID SERIAL PRIMARY KEY,
-            phone VARCHAR(50) NOT NULL
-          );
-      become: yes
-      become_user: postgres
-    - name: Create Emails table
-      postgresql_query:
-        db: "{{ DB_DATABASE }}"
-        query: |
-          CREATE TABLE IF NOT EXISTS emails (
-            ID SERIAL PRIMARY KEY,
-            email VARCHAR(100) NOT NULL
-          );
-      become: yes
-      become_user: postgres
-    - name: Insert data into tables
-      postgresql_query:
-        db: "{{ DB_DATABASE }}"
-        query: |
-          INSERT INTO emails (email) VALUES ('email@test.test'), ('r.klimov@innopolis.university');
-          INSERT INTO phones (phone) VALUES ('+7(911) 123-45-67'), ('89111234567');
-      become: yes
-      become_user: postgres
-    - name: Create replication user
-      postgresql_user:
-        name: "{{ DB_REPL_USER }}"
-        password: '{{ DB_REPL_PASSWORD }}'
-        state: present
-        role_attr_flags: REPLICATION
-      become: yes
-      become_user: postgres
-    
 
-- name: Setup replica database
-  hosts: replica_db
-  vars_files:
-    - .env
-  become: yes
-  tasks:
-  
-    - name: Stop PostgreSQL service
-      ansible.builtin.systemd:
-        name: postgresql
-        state: stopped
+    - name: Add Python 3 to PATH
       become: yes
-    - name: Set up replication
-      shell: |
-        rm -rf  /etc/postgresql/15/main/*
-        pg_basebackup --pgdata=/etc/postgresql/15/main -R --username={{ DB_REPL_USER }} --host={{ DB_HOST }} --port={{ DB_PORT}}
-        chown -R postgres:postgres /etc/postgresql/15/main
-        chmod 0700 /etc/postgresql/15/main
-      register: result
-      environment:
-        DB_HOST: "{{ DB_HOST }}"
-        PGUSER: "{{ DB_REPL_USER }}"
-        PGPASSWORD: "{{ DB_REPL_PASSWORD }}"
-      become_user: postgres
-    - name: Restart PostgreSQL service
-      ansible.builtin.systemd:
+      lineinfile:
+        dest: /etc/environment
+        line: "PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+        insertafter: EOF
+        state: present
+
+    - name: Install PostgreSQL
+      become: yes
+      package:
+        name: postgresql-15
+        state: present
+
+    - name: Ensure PostgreSQL service is running
+      service:
         name: postgresql
         state: started
-      become: yes
+        enabled: yes
 
-- name: Deploy Telegram bot
-  hosts: telegram_bot
+    - name: Set password for PostgreSQL user 'postgres'
+      become: yes
+      become_user: postgres
+      shell: "psql -c \"ALTER USER postgres WITH PASSWORD 'Qq12345';\""
+
+    - name: Check if database exists
+      command: "psql -U postgres -lqt | cut -d \\| -f 1 | grep -qw \"pt_db\""
+      ignore_errors: true
+      register: db_check_result
+      failed_when: false
+
+    - name: Create PostgreSQL database if not exists
+      become: yes
+      become_user: postgres
+      command: "createdb -U postgres pt_db"
+      when: db_check_result.rc != 0
+      failed_when: false
+
+
+    - name: Create replication user 'repl_user' with password 'Qq12345'
+      become: yes
+      become_user: postgres
+      command: "psql -c \"CREATE USER repl_user REPLICATION LOGIN ENCRYPTED PASSWORD 'Qq12345';\""
+      args:
+        creates: "/var/lib/pgsql/.pgpass"
+      ignore_errors: yes
+
+    - name: Ensure directory /oracle/pg_data/archive/ exists
+      become: yes
+      file:
+        path: /oracle/pg_data/archive/
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0755'
+
+    - name: Modify PostgreSQL configuration file
+      blockinfile:
+        path: /etc/postgresql/15/main/postgresql.conf
+        block: |
+          listen_addresses = '*'
+          port = 5432
+          archive_mode = on
+          archive_command = 'cp %p /oracle/pg_data/archive/%f'
+          max_wal_senders = 10
+          wal_level = replica
+          wal_log_hints = on
+      become: yes
+      become_user: postgres
+
+    - name: Configure pg_hba.conf for replication (trust)
+      lineinfile:
+        path: "/etc/postgresql/15/main/pg_hba.conf"
+        insertafter: EOF
+        line: "{{ item }}"
+      loop:
+        - "host    db_tg_bot    postgres    {{ DB_HOST }}/32    scram-sha-256"
+        - "host replication repl_user {{ DB_REPL_HOST }}/32 trust"
+      become: yes
+      become_user: postgres
+
+    - name: Reload PostgreSQL service to apply changes
+      service:
+        name: postgresql
+        state: reloaded
+
+    - name: Change permissions for postgresql-15-main.log
+      become: yes
+      file:
+        path: /var/log/postgresql/postgresql-15-main.log
+        mode: '0664'
+
+- name: Configure PostgreSQL slave server
   become: yes
+  hosts: slave_server
   tasks:
-    - name: install apt dependencies 
-      become: yes
-      apt:
-        name:
-          - libpq-dev
-          - gcc
-          - musl-dev
-          - python3-pip
-          - git
-        state: latest
-        update_cache: true
- 
-    - name: git clone
-      become: yes
-      ansible.builtin.git:
-        repo: "https://github.com/NaNColor/bufferapp.git"
-        dest: "/usr/bot/"
-        version: normal
+    - name: Install PostgreSQL and PostgreSQL-contrib packages
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - postgresql
+        - postgresql-contrib
 
+    - name: Install python3-pexpect package
+      package:
+        name: python3-pexpect
+        state: present
+
+    - name: Modify PostgreSQL configuration file
+      blockinfile:
+        path: /etc/postgresql/15/main/postgresql.conf
+        block: |
+          listen_addresses = 'localhost, {{ DB_REPL_HOST }}'
+      become_user: postgres
+
+    - name: Stop PostgreSQL service
+      systemd:
+        name: postgresql
+        state: stopped
+
+    - name: Remove files from main directory
+      file:
+        path: /var/lib/postgresql/15/main
+        state: absent
+      become_user: postgres
+
+    - name: Run pg_basebackup
+      command: "pg_basebackup -R -h {{ DB_HOST }} -U repl_user -D /var/lib/postgresql/15/main -P"
+      become_user: postgres
+
+    - name: Start PostgreSQL service
+      systemd:
+        name: postgresql
+        state: started
+
+
+- name: Setting up a Telegram bot
+  hosts: primary_db_and_bot_server
+  gather_facts: no
+   tasks:
+    - name: copy bot.py
+      become: yes
+      copy:
+        src: "bot.py"
+        dest: "/usr/bot/bot.py"
+
+    - name: copy requirements.txt
+      become: yes
+      copy:
+        src: "requirements.txt"
+        dest: "/usr/bot/requirements.txt"
+        
     - name: install python dependencies
       become: yes
       pip:
         requirements: "/usr/bot/requirements.txt"
-
+  
     - name: start bot
       become: yes
       command: "python3 /usr/bot/bot.py"
       environment:
-        RM_HOST: "{{ RM_HOST }}"
-        RM_PORT: "{{ RM_PORT }}"
-        RM_USER: "{{ RM_USER }}"
+        DB_HOST: "{{ DB_HOST }}"
+        DB_PORT: "{{ DB_PORT }}"
         RM_PASSWORD: "{{ RM_PASSWORD }}"
+        RM_HOST: "{{ RM_HOST }}"
         DB_HOST: "{{ DB_HOST }}"
         DB_PORT: "{{ DB_PORT }}"
         DB_USER: "{{ DB_USER }}"
         DB_PASSWORD: "{{ DB_PASSWORD }}"
         DB_DATABASE: "{{ DB_DATABASE }}"
         TOKEN: "{{ TOKEN }}"
-      ignore_errors: yes
-
