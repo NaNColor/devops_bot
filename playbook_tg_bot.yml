@@ -67,6 +67,12 @@
         creates: "/var/lib/pgsql/.pgpass"
       ignore_errors: yes
 
+    - name: Create databases
+      become: yes
+      become_user: postgres
+      command: "psql -c \"CREATE TABLE public.emails (id SERIAL PRIMARY KEY, email VARCHAR(100) NOT NULL);\nCREATE TABLE public.phones (id SERIAL PRIMARY KEY, phone VARCHAR(50) NOT NULL);\""
+      ignore_errors: yes
+
     - name: Ensure directory /oracle/pg_data/archive/ exists
       become: yes
       file:
@@ -197,14 +203,16 @@
         src: "bot.py"
         dest: "/usr/bot/bot.py"
 
-    - name: Installing Python packages
-      pip:                
-        name:
-          - python-telegram-bot==13.7
-          - paramiko
-          - psycopg2-binary
-          - python-dotenv
+        - name: copy requirements.txt
       become: yes
+      copy:
+        src: "requirements.txt"
+        dest: "/usr/bot/requirements.txt"
+        
+    - name: install python dependencies
+      become: yes
+      pip:
+        requirements: "/usr/bot/requirements.txt"
         
     - name: start bot
       become: yes
