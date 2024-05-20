@@ -110,6 +110,10 @@
       service:
         name: postgresql
         state: reloaded
+      environment:
+        POSTGRES_PASSWORD: "{{ DB_PASSWORD }}"
+      become: yes
+      become_user: postgres
 
     - name: Change permissions for postgresql-15-main.log
       become: yes
