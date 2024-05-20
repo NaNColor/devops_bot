@@ -175,6 +175,10 @@
     - name: Include group variables
       include_vars:
         file: .env
+    - name: create dir
+      become: yes
+      shell: "mkdir -p /usr/bot && chmod -R 777 /usr/bot"
+      
     - name: copy bot.py
       become: yes
       copy:
