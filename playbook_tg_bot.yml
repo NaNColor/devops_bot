@@ -213,7 +213,7 @@
         requirements: "/usr/bot/requirements.txt"
         
     - name: Run bot 
-      command: python3 /usr/bot/bot.py
+      command: python3 /usr/bot/bot.py &
       environment:
         RM_HOST: "{{ RM_HOST }}"
         RM_PORT: "{{ RM_PORT }}"

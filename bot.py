@@ -344,8 +344,13 @@ def get_services(update: Update, context):
     update.message.reply_text(result)
 
 def get_repl_logs(update: Update, context):
-    data = ssh_execute_get_logs_from_bd()
-    #data = get_logs_from_bd_volume()
+    data = ""
+    try:
+        data = ssh_execute_get_logs_from_bd()
+        #data = get_logs_from_bd_volume()
+    except Exception as e:
+        data = f"Error:\n{e}"
+        
     result = f"Logs from database:\n{data}"
     update.message.reply_text(result)
 
