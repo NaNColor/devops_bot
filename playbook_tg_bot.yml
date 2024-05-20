@@ -101,7 +101,7 @@
         insertafter: EOF
         line: "{{ item }}"
       loop:
-        - "host    db_tg_bot    postgres    {{ DB_HOST }}/32    scram-sha-256"
+        - "host all postgres {{ DB_HOST }}/32 scram-sha-256"
         - "host replication repl_user {{ DB_REPL_HOST }}/32 trust"
       become: yes
       become_user: postgres
@@ -113,7 +113,6 @@
       environment:
         POSTGRES_PASSWORD: "{{ DB_PASSWORD }}"
       become: yes
-      become_user: postgres
 
     - name: Change permissions for postgresql-15-main.log
       become: yes
@@ -125,6 +124,9 @@
   become: yes
   hosts: slave_server
   tasks:
+    - name: Include group variables
+      include_vars:
+        file: .env
     - name: Install PostgreSQL and PostgreSQL-contrib packages
       package:
         name: "{{ item }}"
@@ -170,6 +172,9 @@
   hosts: primary_db_and_bot_server
   gather_facts: no
   tasks:
+    - name: Include group variables
+      include_vars:
+        file: .env
     - name: copy bot.py
       become: yes
       copy:
