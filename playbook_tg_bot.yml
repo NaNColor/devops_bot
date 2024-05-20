@@ -203,7 +203,7 @@
         src: "bot.py"
         dest: "/usr/bot/bot.py"
 
-        - name: copy requirements.txt
+    - name: copy requirements.txt
       become: yes
       copy:
         src: "requirements.txt"
